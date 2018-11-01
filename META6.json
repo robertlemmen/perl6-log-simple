@@ -10,7 +10,7 @@
         "Test::META"
     ],
     "provides" : {
-        "Cache::Async" : "lib/Log/Simple.pm6"
+        "Log::Simple" : "lib/Log/Simple.pm6"
     },
     "license" : "Artistic-2.0",
     "source-url" : "https://github.com/robertlemmen/perl6-log-simple.git"
