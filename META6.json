@@ -1,0 +1,17 @@
+{
+    "perl" : "6.*",
+    "name" : "Log::Simple",
+    "version" : "0.0.1",
+    "description" : "Simple Logging Framework for Perl 6",
+    "authors" : [
+        "Robert Lemmen"
+    ],
+    "test-depends" : [
+        "Test::META"
+    ],
+    "provides" : {
+        "Cache::Async" : "lib/Log/Simple.pm6"
+    },
+    "license" : "Artistic-2.0",
+    "source-url" : "https://github.com/robertlemmen/perl6-log-simple.git"
+}
