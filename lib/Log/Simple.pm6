@@ -1,49 +1,85 @@
-unit class Log::Simple;
+unit module Log::Simple;
 
-has $.ctx;
-
-my $max-ctx-width = 0;
+enum Severity (
+    TRACE => 0,
+    DEBUG => 1,
+    INFO => 2,
+    WARN => 3,
+    ERROR => 4
+);
 
 my $date-fmt = sub ($self) {
     given $self {
-        sprintf "%04d-%02d-%02d %02d:%02d:%06.3f ",
+        sprintf "%04d-%02d-%02d %02d:%02d:%06.3f",
             .year, .month, .day,
             .hour, .minute, .second
     }
 }
 
-my sub log($severity, $ctx, $msg) {
-    say   DateTime.now(formatter => $date-fmt)
-        ~ " ["
-        ~ sprintf('%-' ~ $max-ctx-width ~ 's', $ctx)
-        ~ "] ["
-        ~ sprintf('%-5s', $severity) ~ "] $msg";
-}
-
-method new($ctx) {
-    if ($ctx.chars > $max-ctx-width) {
-        $max-ctx-width = $ctx.chars;
+role LogHandler {
+    has $.parent-handler;
+    method handle-log(Instant $timestamp, Severity $severity, $context, $message) {
+        ...
     }
-    return self.bless(ctx => $ctx);
+    method propagate-log(Instant $timestamp, Severity $severity, $context, $message) {
+        if self.handle-log($timestamp, $severity, $context, $message) {
+            if $!parent-handler {
+                $!parent-handler.propagate-log($timestamp, $severity, $context, $message);
+            }
+        }
+    }
 }
 
-method trace($msg) {
-    log('trace', $!ctx, $msg);
+class SimpleConsoleAppender does LogHandler {
+    # XXX formatter specs
+    # XXX time as utc?
+    method handle-log(Instant $timestamp, Severity $severity, $context, $message) {
+        say   DateTime.new($timestamp, formatter => $date-fmt)
+            ~ " ["
+            ~ sprintf('%-6s', $context)
+            ~ "] ["
+            ~ sprintf('%-5s', $severity) ~ "] $message";
+        return True;
+    }
 }
 
-method debug($msg) {
-    log('debug', $!ctx, $msg);
+class SeverityFilter does LogHandler {
+    has Severity $.threshold;
+    method handle-log(Instant $timestamp, Severity $severity, $context, $message) {
+        return $severity >= $!threshold;
+    }
 }
 
-method info($msg) {
-    log('info', $!ctx, $msg);
+class Logger {
+
+    has $.context;
+    has $.handler;
+
+    method trace($msg) {
+        $!handler.propagate-log(now, TRACE, $!context, $msg);
+    }
+
+    method debug($msg) {
+        $!handler.propagate-log(now, DEBUG, $!context, $msg);
+    }
+
+    method info($msg) {
+        $!handler.propagate-log(now, INFO, $!context, $msg);
+    }
+
+    method warn($msg) {
+        $!handler.propagate-log(now, WARN, $!context, $msg);
+    }
+
+    method error($msg) {
+        $!handler.propagate-log(now, ERROR, $!context, $msg);
+    }
 }
 
-method warn($msg) {
-    log('warn', $!ctx, $msg);
-}
+my $default-log-setup = SeverityFilter.new(threshold => DEBUG, parent-handler => SimpleConsoleAppender.new(parent-handler => Nil));
 
-method error($msg) {
-    log('error', $!ctx, $msg);
-}
+# XXX access to the global above, to set it to other setups
 
+sub make-logger($context) is export {
+    return Logger.new(context => $context, handler => $default-log-setup);
+}
